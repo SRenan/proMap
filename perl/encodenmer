@@ -1,0 +1,396 @@
+#!/bin/env perl
+
+=pod
+
+=head1 NAME
+
+encodenmer - encode or decode sequence strings 
+
+=head1 SYNOPSIS
+
+  # encode all strings that look like sequence - sequences
+  # with gaps are not encoded
+  cat text.txt | encodenmer
+  # process sequences that have gaps
+  cat text.txt | encodenmer -gap
+  # remove lines from output which have no encodable fields
+  cat text.txt | encodenmer -skip
+  # append encoded form, without replacing the original sequence
+  cat text.txt | encodenmer -append
+
+  # encode specific fields
+  cat text.txt | encodenmer -f 1
+  cat text.txt | encodenmer -f 1,3
+
+  # decode specific field(s)
+  cat encoded.txt | encodenmer -decode -f 1
+  cat encoded.txt | encodenmer -decode -f 1,3
+  # decode without replacing the encoded sequence
+  cat encoded.txt | encodenmer -decode -f 1 -append
+  cat encoded.txt | encodenmer -decode -f 1,3 -append
+
+=head1 DESCRIPTION
+
+Encode sequence files into denser form using printable ASCII
+characters. Do this not only to save space, but to speed up parsing.
+
+The encoding scheme has certain properties. Read more about it at
+
+ http://gin.bcgsc.ca/plone/Members/martink/pod/Encode/view
+
+=head2 Speed
+
+Encoding 10,000 30mers at the command line takes 2 seconds on map02.
+
+ > time ./encodenmer seq.30mers.txt &> /dev/null
+ real    0m2.016s
+ user    0m0.428s
+ sys     0m0.024s
+
+With subsequent repeats of the command taking 0.5s (reduction in time
+due to I/O buffering).
+
+ > time ./encodenmer seq.30mers.txt &> /dev/null
+ real    0m0.464s
+ user    0m0.438s
+ sys     0m0.009s
+
+=head1 EXAMPLES
+
+=head2 Encoding
+
+ > cat seq.nogap.txt
+ GATCTGATAAGTCC ACTGGTATGGGGAC TTATTGATCTTTTG AGGGTCGCAGGCCG
+ AATATTTTCTTATT GATGATTCTAAGTA TTGGGAGCCTAATT TATCAACTGTTTTG
+ AAGGTGCCAGGCCA ACTGGCAAAAGGTG AGAGGCCCAGAAGG AATTAGCGTGATGA
+ ACACCCCAGCTGAG GCATACCCAGGTGA GGGGCTGGGTCTTC CATTCCCTTGGTTC
+
+ > cat seq.nogap.txt | encodenmer  
+ YS98CC 4f=eAC wy:zTG 7hZdCG
+ 0@xwTT YYr,TA yc_kTT nBSzTG
+ ,iHdCA 4d!7TG 5dHVGG 0mPYGA
+ 1IESAG ZlHfGA eberTC FpUfTC
+
+ > cat seq.nogap.txt | encodenmer -append
+ GATCTGATAAGTCC YS98CC ACTGGTATGGGGAC 4f=eAC TTATTGATCTTTTG wy:zTG AGGGTCGCAGGCCG 7hZdCG
+ AATATTTTCTTATT 0@xwTT GATGATTCTAAGTA YYr,TA TTGGGAGCCTAATT yc_kTT TATCAACTGTTTTG nBSzTG
+ AAGGTGCCAGGCCA ,iHdCA ACTGGCAAAAGGTG 4d!7TG AGAGGCCCAGAAGG 5dHVGG AATTAGCGTGATGA 0mPYGA
+ ACACCCCAGCTGAG 1IESAG GCATACCCAGGTGA ZlHfGA GGGGCTGGGTCTTC eberTC CATTCCCTTGGTTC FpUfTC
+
+ > cat seq.nogap.txt | encodenmer -f 1,3
+ YS98CC ACTGGTATGGGGAC wy:zTG AGGGTCGCAGGCCG
+ 0@xwTT GATGATTCTAAGTA yc_kTT TATCAACTGTTTTG
+ ,iHdCA ACTGGCAAAAGGTG 5dHVGG AATTAGCGTGATGA
+ 1IESAG GCATACCCAGGTGA eberTC CATTCCCTTGGTTC
+
+ > cat seq.nogap.txt | encodenmer -f 1,3 -append
+ GATCTGATAAGTCC YS98CC ACTGGTATGGGGAC TTATTGATCTTTTG wy:zTG AGGGTCGCAGGCCG
+ AATATTTTCTTATT 0@xwTT GATGATTCTAAGTA TTGGGAGCCTAATT yc_kTT TATCAACTGTTTTG
+ AAGGTGCCAGGCCA ,iHdCA ACTGGCAAAAGGTG AGAGGCCCAGAAGG 5dHVGG AATTAGCGTGATGA
+ ACACCCCAGCTGAG 1IESAG GCATACCCAGGTGA GGGGCTGGGTCTTC eberTC CATTCCCTTGGTTC
+
+=head2 Decoding
+
+ > cat encoded.txt
+ YS98CC 4f=eAC wy:zTG 7hZdCG
+ 0@xwTT YYr,TA yc_kTT nBSzTG
+ ,iHdCA 4d!7TG 5dHVGG 0mPYGA
+ 1IESAG ZlHfGA eberTC FpUfTC
+
+ > cat encoded.txt | encodenmer -decode -f 1,2,3,4
+ GATCTGATAAGTCC ACTGGTATGGGGAC TTATTGATCTTTTG AGGGTCGCAGGCCG
+ AATATTTTCTTATT GATGATTCTAAGTA TTGGGAGCCTAATT TATCAACTGTTTTG
+ AAGGTGCCAGGCCA ACTGGCAAAAGGTG AGAGGCCCAGAAGG AATTAGCGTGATGA
+ ACACCCCAGCTGAG GCATACCCAGGTGA GGGGCTGGGTCTTC CATTCCCTTGGTTC
+
+ > cat encoded.txt | encodenmer -decode -f 1,2,3,4 -append
+ YS98CC GATCTGATAAGTCC 4f=eAC ACTGGTATGGGGAC wy:zTG TTATTGATCTTTTG 7hZdCG AGGGTCGCAGGCCG
+ 0@xwTT AATATTTTCTTATT YYr,TA GATGATTCTAAGTA yc_kTT TTGGGAGCCTAATT nBSzTG TATCAACTGTTTTG
+ ,iHdCA AAGGTGCCAGGCCA 4d!7TG ACTGGCAAAAGGTG 5dHVGG AGAGGCCCAGAAGG 0mPYGA AATTAGCGTGATGA
+ 1IESAG ACACCCCAGCTGAG ZlHfGA GCATACCCAGGTGA eberTC GGGGCTGGGTCTTC FpUfTC CATTCCCTTGGTTC
+
+=head2 Consistency Check
+
+Returns any lines for which the inverse operation does not result in
+the original nmer. The input is 1,000,000 random nmers (with gaps) of
+variety of lengths.
+
+ > cat seq.random.txt | encodenmer -append -gap | encodenmer -append -decode -f 2
+   extract -t "_0 ne_2"
+
+=head2 Gappy Sequence
+
+To process gappy sequence, you must use -gap, otherwise fields with gaps will be left unencoded.
+
+ > cat seq.gap.txt 
+ CNNNNNNNNNNNNN GTTTCCTTGGGTTT TATAGATCTGTTTC AGAGTTGGAGATAC
+ GTGATGCATGAAAA GCTTCCCTTTACCC GATGATCNNNNNNN TGAAACCTAGTTGG
+ TGGCATCTGATCNN ATCCTTGGAAAAGA TTTCAGCTTTCGTA GGGGCTGAAGGCCA
+ CGTTGCTGCAGACC TCTCTGAACCACAT GAATGAGACGATGA GATGGAATTCNNNN
+
+ > cat seq.gap.txt | encodenmer
+ CNNNNNNNNNNNNN jpyfTT n5rjTC 5jcYAC
+ i=FVAA bpUlCC GATGATCNNNNNNN s+QjGG
+ TGGCATCTGATCNN :Uc!GA zEUqTA ebVdCA
+ Ptt5CC rS+DAT VsWYGA GATGGAATTCNNNN
+
+ > cat seq.gap.txt | encodenmer -gap
+ C----N jpyfTT n5rjTC 5jcYAC
+ i=FVAA bpUlCC YYC--N s+QjGG
+ uFS:NN :Uc!GA zEUqTA ebVdCA
+ Ptt5CC rS+DAT VsWYGA Yc@C-N
+
+If you have one record per line, use -skip to avoid processing and
+reporting lines which have no encodable records (e.g. gappy nmers are
+skipped) 
+
+ > cat seq.txt
+ TATAGATCTGTTTC
+ AGAGTTGGAGATAC
+ GTGATGCATGAAAA
+ GCTTCCCTTTACCC
+ GATGATCNNNNNNN
+ TGAAACCTAGTTGG
+ TGGCATCTGATCNN
+ ATCCTTGGAAAAGA
+ TTTCAGCTTTCGTA
+ GGGGCTGAAGGCCA
+
+ > cat seq.txt | encodenmer
+ n5rjTC
+ 5jcYAC
+ i=FVAA
+ bpUlCC
+ GATGATCNNNNNNN
+ s+QjGG
+ TGGCATCTGATCNN
+ :Uc!GA
+ zEUqTA
+ ebVdCA
+
+ > cat seq.txt | encodenmer -skip
+ n5rjTC
+ 5jcYAC
+ i=FVAA
+ bpUlCC
+ s+QjGG
+ :Uc!GA
+ zEUqTA
+ ebVdCA
+
+=head1 HISTORY
+
+=over
+
+=item * 6 Nov 2007
+
+Started.
+
+=back 
+
+=head1 BUGS
+
+=head1 AUTHOR
+
+Martin Krzywinski
+
+=head1 CONTACT
+
+  Martin Krzywinski
+  Genome Sciences Centre
+  Vancouver BC Canada
+  www.bcgsc.ca
+  martink@bcgsc.ca
+
+=cut
+
+################################################################
+#
+# Copyright 2002-2007 Martin Krzywinski
+#
+# This file is part of the Genome Sciences Centre Perl code base.
+#
+# This script is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This script is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this script; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+################################################################
+
+use strict;
+use Config::General;
+use Data::Dumper;
+use File::Basename;
+use FindBin;
+use Getopt::Long;
+use IO::File;
+use Math::VecStat qw(sum min max average);
+use Pod::Usage;
+use Set::IntSpan;
+use Statistics::Descriptive;
+use Storable;
+use Time::HiRes qw(gettimeofday tv_interval);
+use lib "$FindBin::RealBin";
+use lib "$FindBin::RealBin/../lib";
+use lib "$FindBin::RealBin/lib";
+use vars qw(%OPT %CONF);
+
+use lib "/home/martink/cvs/encode/current";
+use Encode;
+
+################################################################
+#
+# *** YOUR MODULE IMPORTS HERE
+#
+################################################################
+
+GetOptions(\%OPT,
+	   "f=s",
+	   "gap",
+	   "append",
+	   "skip",
+	   "decode",
+	   "configfile=s","help","man","debug+");
+
+pod2usage() if $OPT{help};
+pod2usage(-verbose=>2) if $OPT{man};
+loadconfiguration($OPT{configfile});
+populateconfiguration(); # copy command line options to config hash
+validateconfiguration(); 
+if($CONF{debug} > 1) {
+  $Data::Dumper::Pad = "debug parameters";
+  $Data::Dumper::Indent = 1;
+  $Data::Dumper::Quotekeys = 0;
+  $Data::Dumper::Terse = 1;
+  print Dumper(\%CONF);
+}
+
+my @seqchars_nogap = qw(A T G C);
+my @seqchars_gap   = qw(A T G C N);
+my $seqrx_nogap    = join("",@seqchars_nogap);
+my $seqrx_gap    = join("",@seqchars_gap);
+
+my (@seqchars,$seqrx);
+if($CONF{gap}) {
+  @seqchars = @seqchars_gap;
+  $seqrx    = $seqrx_gap;
+} else {
+  @seqchars = @seqchars_nogap;
+  $seqrx    = $seqrx_nogap;
+}
+
+my $inputhandle;
+if(my $file = $ARGV[0]) {
+  die "No such file $file" unless -e $file;
+  open(FILE,$file);
+  $inputhandle = \*FILE;
+} else {
+  $inputhandle = \*STDIN;
+}
+
+while(<$inputhandle>) {
+    my $line = $_;
+    chomp $line;
+    my @tok = split(/[$CONF{delim}]+/,$line);
+    my @tok_queue;
+    if($CONF{f}) {
+	my @f = split(",",$CONF{f});
+	@tok_queue = @tok[map {$_-1} @f];
+    } else {
+	for my $tok (@tok) {
+	    next unless $tok =~ /^[$seqrx]+$/i;
+	    push @tok_queue, $tok;
+	}
+    }
+    next if $CONF{skip} && ! @tok_queue;
+    for my $tok (@tok_queue) {
+	my $transform;
+	if($CONF{decode}) {
+	    $transform = Encode::decode_nmer($tok);
+	} else {
+	    $transform = Encode::encode_nmer(uc $tok);
+	}
+	if($CONF{append}) {
+	    $line =~ s/\Q$tok\E/$tok $transform/g;
+	} else {
+	    $line =~ s/\Q$tok\E/$transform/g;
+	}
+    }
+    print "$line\n";
+}
+
+sub validateconfiguration {
+  $CONF{delim} ||= "\\s";
+}
+
+################################################################
+#
+# *** DO NOT EDIT BELOW THIS LINE ***
+#
+################################################################
+
+sub populateconfiguration {
+  foreach my $key (keys %OPT) {
+    $CONF{$key} = $OPT{$key};
+  }
+
+  # any configuration fields of the form __XXX__ are parsed and replaced with eval(XXX). The configuration
+  # can therefore depend on itself.
+  #
+  # flag = 10
+  # note = __2*$CONF{flag}__ # would become 2*10 = 20
+
+  for my $key (keys %CONF) {
+    my $value = $CONF{$key};
+    while($value =~ /__([^_].+?)__/g) {
+      my $source = "__" . $1 . "__";
+      my $target = eval $1;
+      $value =~ s/\Q$source\E/$target/g;
+      #printinfo($source,$target,$value);
+    }
+    $CONF{$key} = $value;
+  }
+
+}
+
+sub loadconfiguration {
+  my $file = shift;
+  my ($scriptname) = fileparse($0);
+  if(-e $file && -r _) {
+    # great the file exists
+  } elsif (-e "/home/$ENV{LOGNAME}/.$scriptname.conf" && -r _) {
+    $file = "/home/$ENV{LOGNAME}/.$scriptname.conf";
+  } elsif (-e "$FindBin::RealBin/$scriptname.conf" && -r _) {
+    $file = "$FindBin::RealBin/$scriptname.conf";
+  } elsif (-e "$FindBin::RealBin/etc/$scriptname.conf" && -r _) {
+    $file = "$FindBin::RealBin/etc/$scriptname.conf";
+  } elsif (-e "$FindBin::RealBin/../etc/$scriptname.conf" && -r _) {
+    $file = "$FindBin::RealBin/../etc/$scriptname.conf";
+  } else {
+    return undef;
+  }
+  $OPT{configfile} = $file;
+  my $conf = new Config::General(-ConfigFile=>$file,
+				 -AllowMultiOptions=>"yes",
+				 -LowerCaseNames=>1,
+				 -AutoTrue=>1);
+  %CONF = $conf->getall;
+}
+
+sub printdebug {
+  printinfo("debug",@_)  if $CONF{debug};
+}
+
+sub printinfo {
+  printf("%s\n",join(" ",@_));
+}
+

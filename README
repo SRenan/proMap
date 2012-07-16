@@ -1,0 +1,51 @@
+Requirements:
+-------------
+You will need the following software installed: 
+-samtools (http://samtools.sourceforge.net/)
+-bwa (http://bio-bwa.sourceforge.net/bwa.shtml)
+
+You will also need bash and perl, and the following perl packages installed on your machine: 
+Config-General: http://search.cpan.org/~tlinden/Config-General-2.49/General.pm
+Math-VecStat: http://search.cpan.org/~aspinelli/Math-VecStat-0.08/VecStat.pm
+Set-IntSpan: http://search.cpan.org/~swmcd/Set-IntSpan-1.14/IntSpan.pm
+Statistics-Descriptive: http://search.cpan.org/~shlomif/Statistics-Descriptive-3.0200/lib/Statistics/Descriptive.pm
+
+Finally you will need to edit the proMap.sh to change the location of the perl directory contains in this archive.
+This can be done by modifying the variable at the top of the script `perl_dir'.
+
+
+Usage:
+------
+The program you want to use is proMapAll.sh, which is a simple script that will launch the appropriate commands. 
+
+Here are a few simple steps for constructing your own mappability file:
+1) Download your sequence data by chromosome from the UCSC genome browser. Here I use the sacCer2 which is small enough for running a test.
+
+mkdir sacCer2
+cd sacCer2
+wget --timestamping 'ftp://hgdownload.cse.ucsc.edu/goldenPath/sacCer2/chromosomes/chr[IXV]*.fa.gz'
+
+2) Form your genome fasta file
+
+gunzip *.fa.gz
+cat *.fa > sacCer2.fa
+
+3) Index your genome with bowtie and bwa
+
+bwa index -a bwtsw sacCer2.fa
+samtools faidx sacCer2.fa
+
+4) Construction of the profile (this can be long depending on the size of the genome)
+By default, the script will launch chromosomes in parallel which requires multiple cpus/cores and a large amount of memory. If you do not have a large cpu/memory machine you could simply use the proMap.sh script to do one chromosome at a time. 
+
+So to do one chromosome:
+bash proMap.sh -l 36 -g sacCer2.fa -c chrI.fa # for 36 mers
+
+and for the whole genome
+bash proMap.sh -l 36 -g sacCer2.fa
+
+For large genome, completing all chromosomes in parallel can be heavy on memory and cpu, so you may want to modify the script to only do a few chromosomes at a time.
+Please have a look at the bash script for more details. 
+
+At the end, if you use proMapAll.sh, you should endup with a file named sacCer2.fa-36.bed containing the non-mappable intervals. 
+You can then simply load it up in R using the import function of the rtracklayer package and use it in PICS.

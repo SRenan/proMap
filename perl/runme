@@ -1,0 +1,35 @@
+#!/bin/bash
+
+echo "Obtain help using -h, e.g. enumeratenmer -h"
+echo "Obtain manpage using -man, e.g. enumeratenmer -man"
+echo 
+echo "A few examples of enumeratenmer. All output redirected to out.N.*"
+
+################################################################
+# enumerate
+
+echo "enumerating: -nmer 50"
+./enumeratenmer -nmer 50 -fasta sample.fa > out.1.txt
+
+# no position
+echo "enumerating: -nmer 50 -brief"
+./enumeratenmer -nmer 50 -fasta sample.fa -brief > out.2.txt
+
+# no encoding
+echo "enumerating: -nmer 50 -brief -raw"
+./enumeratenmer -nmer 50 -fasta sample.fa -raw > out.3.txt
+
+# fastq output
+echo "enumerating: -nmer 50 -brief -raw -fastq"
+./enumeratenmer -nmer 50 -fasta sample.fa -raw -fastq > out.4.+.txt 2> out.4.-.txt
+
+################################################################
+# decode
+
+echo "decoding: -f 1 -decode"
+cat out.1.txt | ./encodenmer -f 1 -decode > out.1.decoded.txt
+
+echo "encoding: -append"
+cat out.3.txt | ./encodenmer -append > out.3.encoded.txt
+
+

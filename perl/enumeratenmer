@@ -1,0 +1,302 @@
+#!/bin/env perl
+
+=pod
+
+=head1 NAME
+
+enumerate - enumerate all nmers in a fasta file
+
+=head1 SYNOPSIS
+
+  enumerate -nmer LENGTH -fasta FILE [-brief] [-raw] [-fastq]
+
+=head1 DESCRIPTION
+
+Enumerates all nmers in a sequence and reports their
+position. All nmers are reported as follows
+
+ ...
+ jvywxEwVu 50433322
+ zjvnozm3e 50433323
+ yzjEIz8Dc 50433324
+ vywxEwVuX 50433325
+ ...
+
+with the fields being (1) encoded enmer (2) position seen in
+sequence. A given nmer is reported for each position it is found in
+the sequence.
+
+Encoding of nmers is done using
+
+http://gin.bcgsc.ca/plone/Members/martink/pod/encodenmer/view
+
+The nmers can be decoded using the same encodenmer tool.
+
+=head1 OPTIONS
+
+=head2 -nmer LENGTH
+
+Specify the length of the nmers.
+
+=head2 -limit_fasta_size LENGTH
+
+Limit the amount of sequence to read in. Useful for debugging.
+
+=head2 -skip_gappy
+
+If used, nmers with Ns will be skipped from output.
+
+=head2 -fasta
+
+File to read.
+
+=head2 -brief
+
+Does not report position.
+
+=head2 -raw
+
+Does not encode nmer.
+
+If you choose to include gappy nmers (-noskip_gappy), you must use -raw because gappy nmers cannot be encoded.
+
+=head2 -fastq
+
+Generates output in fastq format for both + and - strands.
+
+The + strand data is written to STDOUT and the - strand data (reverse complemented) to STDERR.
+
+=head1 HISTORY
+
+=over
+
+=item * 20 Apr 2009 v0.22
+
+=item * 17 Apr 2009 v0.21
+
+Added -brief and raw.
+
+=item * 2 Feb 2009 v0.2
+
+Minor adjustments.
+
+=item * 13 Nov 2007 0.1
+
+Cleaned and versioned.
+
+=back 
+
+=head1 BUGS
+
+=head1 AUTHOR
+
+Martin Krzywinski
+
+=head1 CONTACT
+
+  Martin Krzywinski
+  Genome Sciences Centre
+  Vancouver BC Canada
+  www.bcgsc.ca
+  martink@bcgsc.ca
+
+=cut
+
+################################################################
+#
+# Copyright 2002-2007 Martin Krzywinski
+#
+# This file is part of the Genome Sciences Centre Perl code base.
+#
+# This script is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This script is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this script; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+################################################################
+
+use strict;
+use Config::General;
+use Data::Dumper;
+use File::Basename;
+use FindBin;
+use Getopt::Long;
+use IO::File;
+use Math::VecStat qw(sum min max average);
+use Pod::Usage;
+use Set::IntSpan;
+use Statistics::Descriptive;
+use Storable;
+use Time::HiRes qw(gettimeofday tv_interval);
+use lib "$FindBin::RealBin";
+use lib "$FindBin::RealBin/../lib";
+use lib "$FindBin::RealBin/lib";
+use vars qw(%OPT %CONF);
+
+use Encode;
+
+################################################################
+#
+# *** YOUR MODULE IMPORTS HERE
+#
+################################################################
+
+GetOptions(\%OPT,
+	   "nmer=i",
+	   "limit_fasta_size=s",
+	   "fasta=s",
+	   "brief",
+	   "fastq",
+	   "raw",
+	   "skip_gappy!",
+	   "configfile=s","help","man","debug+");
+
+pod2usage() if $OPT{help};
+pod2usage(-verbose=>2) if $OPT{man};
+loadconfiguration($OPT{configfile});
+populateconfiguration(); # copy command line options to config hash
+validateconfiguration(); 
+if($CONF{debug} > 1) {
+  $Data::Dumper::Pad = "debug parameters";
+  $Data::Dumper::Indent = 1;
+  $Data::Dumper::Quotekeys = 0;
+  $Data::Dumper::Terse = 1;
+  print Dumper(\%CONF);
+}
+
+################################################################
+# read in the sequence file
+printdebug("reading fasta");
+my $seq = read_fasta($CONF{fasta});
+printdebug("got sequence",length($seq));
+my $l   = length($seq);
+(my $chr = $CONF{fasta_file}) =~ s/\..*//;
+#
+################################################################
+
+# my $time = [gettimeofday];
+for my $i (0 .. $l-$CONF{nmer}) {
+  my $nmer = substr($seq,$i,$CONF{nmer});
+  next if $CONF{skip_gappy} && $nmer =~ /N/i;
+  my $encoded_nmer = $CONF{raw} ? $nmer : Encode::encode_nmer($nmer);
+  if($CONF{fastq}) {
+    my $pos = $i + 1;
+    printinfo(sprintf("@%s_%d_+",$chr,$pos));
+    printinfo($encoded_nmer);
+    printinfo("+");
+    printinfo("5" x length($encoded_nmer));
+    my $rcnmer = reverse $nmer;
+    $rcnmer =~ tr/ATGC/TACG/;
+    my $encoded_rcnmer = $CONF{raw} ? $rcnmer : Encode::encode_nmer($rcnmer);
+    printerr(sprintf("@%s_%d_-",$chr,$pos));
+    printerr($encoded_rcnmer);
+    printerr("+");
+    printerr("5" x length($encoded_rcnmer));
+  } else {
+    if($CONF{brief}) {
+      printinfo($encoded_nmer);
+    } else {
+      printinfo($encoded_nmer,$i);
+    }
+  }
+}
+
+sub read_fasta {
+  my $file = shift;
+  open(F,"$file") || die "cannot open fasta file $file";
+  my $s;
+  my $l;
+  while(<F>) {
+    chomp;
+    next if /^\s*#/;
+    next if /^\s*>/;
+    if(/[^atgcn]/i) {
+      #die "got a malformed fasta file line [$_]";
+    }
+    my $line = uc $_;
+    $s .= uc $line;
+    $l += length($_);
+    last if $CONF{limit_fasta_size} && $l > $CONF{limit_fasta_size};
+  }
+  return uc $s;
+}
+
+sub validateconfiguration {
+
+}
+
+################################################################
+#
+# *** DO NOT EDIT BELOW THIS LINE ***
+#
+################################################################
+
+sub populateconfiguration {
+  foreach my $key (keys %OPT) {
+    $CONF{$key} = $OPT{$key};
+  }
+
+  # any configuration fields of the form __XXX__ are parsed and replaced with eval(XXX). The configuration
+  # can therefore depend on itself.
+  #
+  # flag = 10
+  # note = __2*$CONF{flag}__ # would become 2*10 = 20
+
+  for my $key (keys %CONF) {
+    my $value = $CONF{$key};
+    while($value =~ /__([^_].+?)__/g) {
+      my $source = "__" . $1 . "__";
+      my $target = eval $1;
+      $value =~ s/\Q$source\E/$target/g;
+      #printinfo($source,$target,$value);
+    }
+    $CONF{$key} = $value;
+  }
+
+}
+
+sub loadconfiguration {
+  my $file = shift;
+  my ($scriptname) = fileparse($0);
+  if(-e $file && -r _) {
+    # great the file exists
+  } elsif (-e "/home/$ENV{LOGNAME}/.$scriptname.conf" && -r _) {
+    $file = "/home/$ENV{LOGNAME}/.$scriptname.conf";
+  } elsif (-e "$FindBin::RealBin/$scriptname.conf" && -r _) {
+    $file = "$FindBin::RealBin/$scriptname.conf";
+  } elsif (-e "$FindBin::RealBin/etc/$scriptname.conf" && -r _) {
+    $file = "$FindBin::RealBin/etc/$scriptname.conf";
+  } elsif (-e "$FindBin::RealBin/../etc/$scriptname.conf" && -r _) {
+    $file = "$FindBin::RealBin/../etc/$scriptname.conf";
+  } else {
+    return undef;
+  }
+  $OPT{configfile} = $file;
+  my $conf = new Config::General(-ConfigFile=>$file,
+				 -AllowMultiOptions=>"yes",
+				 -LowerCaseNames=>1,
+				 -AutoTrue=>1);
+  %CONF = $conf->getall;
+}
+
+sub printdebug {
+  printinfo("debug",@_)  if $CONF{debug};
+}
+
+sub printinfo {
+  printf("%s\n",join(" ",@_));
+}
+
+sub printerr {
+  printf STDERR ("%s\n",join(" ",@_));
+}
+
