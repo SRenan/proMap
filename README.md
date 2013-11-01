@@ -1,13 +1,13 @@
 Requirements:
 -------------
 You will need the following software installed: 
--samtools (http://samtools.sourceforge.net/)
--bwa (http://bio-bwa.sourceforge.net/bwa.shtml)
+- samtools (http://samtools.sourceforge.net/)
+- bwa (http://bio-bwa.sourceforge.net/bwa.shtml)
 
-You will also need bash and perl, and the following perl packages installed on your machine: 
-Config-General: http://search.cpan.org/~tlinden/Config-General-2.49/General.pm
-Math-VecStat: http://search.cpan.org/~aspinelli/Math-VecStat-0.08/VecStat.pm
-Set-IntSpan: http://search.cpan.org/~swmcd/Set-IntSpan-1.14/IntSpan.pm
+You will also need bash and perl, and the following perl packages installed on your machine:  
+Config-General: http://search.cpan.org/~tlinden/Config-General-2.49/General.pm  
+Math-VecStat: http://search.cpan.org/~aspinelli/Math-VecStat-0.08/VecStat.pm  
+Set-IntSpan: http://search.cpan.org/~swmcd/Set-IntSpan-1.14/IntSpan.pm  
 Statistics-Descriptive: http://search.cpan.org/~shlomif/Statistics-Descriptive-3.0200/lib/Statistics/Descriptive.pm
 
     perl -MCPAN -e shell
