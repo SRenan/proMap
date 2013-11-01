@@ -17,12 +17,12 @@ To make new mappability profiles, use mapProfile.sh which is a simple script tha
 
 Here are a few steps for constructing your own mappability file:
 We use the sacCer2 genome which is small enough for running a test. We select a reads length of 50bp.
-  mkdir sacCer2
-  cd sacCer2
+    mkdir sacCer2
+    cd sacCer2
 For the entire genome:
-  ../mapProfile.sh -l 50 -g sacCer2
+    ../mapProfile.sh -l 50 -g sacCer2
 For the chromosome I only:
-  ../mapProfile.sh -l 50 -g sacCer2 -c I
+    ../mapProfile.sh -l 50 -g sacCer2 -c I
 At the end, you should have a file names sacCer.fa-50.bed containing all the non-mappable intervals.
 You can then simply load it up in R using read.table or the import function of the rtracklayer package and use it in PICS or PING.
 
