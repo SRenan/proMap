@@ -10,6 +10,12 @@ Math-VecStat: http://search.cpan.org/~aspinelli/Math-VecStat-0.08/VecStat.pm
 Set-IntSpan: http://search.cpan.org/~swmcd/Set-IntSpan-1.14/IntSpan.pm
 Statistics-Descriptive: http://search.cpan.org/~shlomif/Statistics-Descriptive-3.0200/lib/Statistics/Descriptive.pm
 
+    perl -MCPAN -e shell
+    install Config::General
+    install Math::VecStat
+    install Set::IntSpan
+    install Statistics::Descriptive
+
 
 Usage:
 ------
