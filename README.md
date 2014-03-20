@@ -35,7 +35,7 @@ For the chromosome I only:
 
     ../mapProfile.sh -l 50 -g sacCer2 -c I
 
-At the end, you should have a file names sacCer.fa-50.bed containing all the non-mappable intervals.
+At the end, you should have a file named sacCer.fa-50.bed containing all the non-mappable intervals.
 You can then simply load it up in R using read.table or the import function of the rtracklayer package and use it in PICS or PING.
 
 

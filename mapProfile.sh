@@ -64,19 +64,19 @@ cat *.fa > $genome.fa
 bwa index -a bwtsw $genome.fa
 samtools faidx $genome.fa
 
-## pileup and bedFile creation
-#if [ "$chr" == "*" ]
-#then
-#  for i in chr*.fa
-#  do
-#    $scriptdir/proMap.sh -l $length -g $genome.fa -c $i #& #run on every cores simultaneously
-#  done
-#  cat chr*.fa-$length/chr*.fa-$length.bed > $genome-$length.bed
-#  #clean dir
-#  rm -r chr*.fa-$length
-#  rm -r $genome.fa.*
-#  echo "Mappability profile for the genome $genome with reads of length $length: $genome-$length.bed"
-#else
-#  $scriptdir/proMap.sh -l $length -g $genome.fa -c chr$chr.fa
-#  echo "Mappability profile for chr$chr of the genome $genome with reads of length $length: chr$chr.fa-$length/chr$chr.fa-$length.bed"
-#fi
+# pileup and bedFile creation
+if [ "$chr" == "*" ]
+then
+  for i in chr*.fa
+  do
+    $scriptdir/proMap.sh -l $length -g $genome.fa -c $i #& #run on every cores simultaneously
+  done
+  cat chr*.fa-$length/chr*.fa-$length.bed > $genome-$length.bed
+  #clean dir
+  rm -r chr*.fa-$length
+  rm -r $genome.fa.*
+  echo "Mappability profile for the genome $genome with reads of length $length: $genome-$length.bed"
+else
+  $scriptdir/proMap.sh -l $length -g $genome.fa -c chr$chr.fa
+  echo "Mappability profile for chr$chr of the genome $genome with reads of length $length: chr$chr.fa-$length/chr$chr.fa-$length.bed"
+fi
